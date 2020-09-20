@@ -116,10 +116,48 @@ class Wearer {
     // if no step data, return 0
     if (this.stepData.length === 0) {
       return 0;
+    } else if (this.stepData.length === 1) {
+      return this.stepData[0].steps;
     } else {
-      // Unix time is in seconds
-      // convert to days since Unix epoch
-      // 86400 seconds per day
+      /*
+        Summary steps data sample:
+        [
+          { daysSinceUnixEpoch: 18525, steps: 3484 },
+          { daysSinceUnixEpoch: 18526, steps: 2324 }
+        ]
+
+        Algorithm:
+        2 pointer method over stepsSummary list
+
+      */
+      const stepsSummary = this.getStepsSummary();
+      let minSteps = 0;
+      let totalSteps = stepsSummary[0].steps;
+      let slowPtr = 0;
+      let fastPtr = 1;
+      while (fastPtr < stepsSummary.length) {
+        const diff = stepsSummary[fastPtr].daysSinceUnixEpoch - stepsSummary[slowPtr].daysSinceUnixEpoch;
+        if (diff === nDayPeriod - 1) {
+          totalSteps += stepsSummary[fastPtr].steps;
+          // enough data collected
+          if (!minSteps) {
+            minSteps = totalSteps;
+          }
+          minSteps = Math.min(minSteps, totalSteps);
+          slowPtr++;
+          fastPtr = slowPtr + 1;
+          totalSteps = stepsSummary[slowPtr].steps;
+        } else if (diff < nDayPeriod) {
+          // collect more steps data
+          totalSteps += stepsSummary[fastPtr].steps;
+          fastPtr++;
+        } else {
+          slowPtr++;
+          totalSteps = stepsSummary[slowPtr].steps;
+          fastPtr = slowPtr + 1;
+        }
+      }
+      return minSteps;
     }
   }
 }
@@ -183,7 +221,6 @@ class TestRunner {
       workoutType: 'walk',
       startTime: 1600565100,
       endTime: 1600565100,
-      caloriesBurnedData: [12, 14, 16, 18, 14, 16, 12, 16, 18, 16],
       stepsData: [200, 210, 220, 260, 270, 240, 220, 216, 240, 248]
     };
     const wearer = new Wearer();
@@ -196,7 +233,6 @@ class TestRunner {
       workoutType: 'walk',
       startTime: 1600565160,
       endTime: 1600565760,
-      caloriesBurnedData: [12, 14, 16, 18, 14],
       stepsData: [200, 210, 220, 260, 270]
     };
     wearer.startWorkout(simulatedWatchData);
@@ -207,15 +243,75 @@ class TestRunner {
     console.log('summary data point', lastSummaryDataPoint);
     console.log();
 
-    const tests = [
+    let tests = [
       {
         title: 'add new step data on same day',
         actual: lastSummaryDataPoint.steps,
         expected: workoutSummary1.steps + workoutSummary2.steps
       }
     ];
-
     this.runTests(tests);
+
+    simulatedWatchData = {
+      // 20 minute walk, next day
+      workoutId: 3,
+      workoutType: 'walk',
+      startTime: 1600651560,
+      endTime: 1600652760,
+      stepsData: [200, 210, 220, 260, 270, 240, 220, 216, 240, 248]
+    };
+    wearer.startWorkout(simulatedWatchData);
+    wearer.endWorkout();
+
+    tests = [
+      {
+        title: 'Summary data points should be aggregated if added same day',
+        actual: stepData.length,
+        expected: 2
+      }
+    ];
+    this.runTests(tests);
+
+    simulatedWatchData = {
+      // 10 minute walk, 2 days later
+      workoutId: 4,
+      workoutType: 'walk',
+      startTime: 1600824360,
+      endTime: 1600824960,
+      stepsData: [150, 160, 170, 155, 165]
+    };
+    wearer.startWorkout(simulatedWatchData);
+    wearer.endWorkout();
+
+    simulatedWatchData = {
+      // 10 minute walk, next day
+      workoutId: 5,
+      workoutType: 'walk',
+      startTime: 1600910760,
+      endTime: 1600911360,
+      stepsData: [150, 160, 170, 155, 165]
+    };
+    wearer.startWorkout(simulatedWatchData);
+    wearer.endWorkout();
+
+    stepData = wearer.getStepsSummary();
+    console.log('Summary step data', stepData);
+    console.log();
+
+    tests = [
+      {
+        title: 'Minimum steps over 2 day period',
+        actual: wearer.getMinimumSteps(2),
+        expected: 1600
+      },
+      {
+        title: 'Minimum steps over 5 day period',
+        actual: wearer.getMinimumSteps(5),
+        expected: 7408
+      }
+    ];
+    this.runTests(tests);
+
   }
 
   runGroupTests() {
