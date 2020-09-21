@@ -160,6 +160,54 @@ class Wearer {
       return minOrMaxSteps;
     }
   }
+
+  getAverageNumberOfSteps(nDayPeriod) {
+    /*
+     * 1. track number of complete N day periods
+     * 2. store running total of steps for complete N day periods
+     * 3. divide number of complete periods by running total
+     */
+    if (this.stepData.length === 0) {
+      return 0;
+    } else if (this.stepData.length === 1) {
+      return this.stepData[0].steps;
+    } else {
+      let completeNDayPeriods = 0;
+      let totalStepsForCompleteNDayPeriods = 0;
+
+      const stepsSummary = this.getStepsSummary();
+      let totalSteps = stepsSummary[0].steps;
+      let slowPtr = 0;
+      let fastPtr = 1;
+      while (fastPtr < stepsSummary.length) {
+        const diff = stepsSummary[fastPtr].daysSinceUnixEpoch - stepsSummary[slowPtr].daysSinceUnixEpoch;
+        if (diff === nDayPeriod - 1) {
+          totalSteps += stepsSummary[fastPtr].steps;
+          // enough data collected
+          completeNDayPeriods++;
+          totalStepsForCompleteNDayPeriods += totalSteps;
+
+          slowPtr++;
+          fastPtr = slowPtr + 1;
+          totalSteps = stepsSummary[slowPtr].steps;
+        } else if (diff < nDayPeriod) {
+          // collect more steps data
+          totalSteps += stepsSummary[fastPtr].steps;
+          fastPtr++;
+        } else {
+          slowPtr++;
+          totalSteps = stepsSummary[slowPtr].steps;
+          fastPtr = slowPtr + 1;
+        }
+      }
+
+      if (completeNDayPeriods === 0) {
+        return 0;
+      } else {
+        return totalStepsForCompleteNDayPeriods / completeNDayPeriods;
+      }
+    }
+  }
 }
 
 class TestRunner {
@@ -214,7 +262,7 @@ class TestRunner {
     this.runTests(tests);
   }
 
-  testMinMaxSteps() {
+  testStepsStats() {
     let simulatedWatchData = {
       // 20 minute walk
       workoutId: 1,
@@ -318,6 +366,16 @@ class TestRunner {
         title: 'Maximum steps over 5 day period',
         actual: wearer.getMinMaxSteps(5, 'max'),
         expected: 7408
+      },
+      {
+        title: 'Average number of steps over 2 day period',
+        actual: wearer.getAverageNumberOfSteps(2),
+        expected: 3704
+      },
+      {
+        title: 'Average number of steps over 5 day period',
+        actual: wearer.getAverageNumberOfSteps(5),
+        expected: 7408
       }
     ];
     this.runTests(tests);
@@ -330,8 +388,8 @@ class TestRunner {
         fn: this.testSingleWalkWorkout
       },
       {
-        title: 'Test minimum and maximum steps',
-        fn: this.testMinMaxSteps
+        title: 'Test minimum, maximum, and average steps',
+        fn: this.testStepsStats
       }
     ];
     tests.forEach((test, testIndex) => {
