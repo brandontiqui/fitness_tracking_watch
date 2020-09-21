@@ -110,7 +110,7 @@ class Wearer {
     }
   }
 
-  getMinimumSteps(nDayPeriod) {
+  getMinMaxSteps(nDayPeriod, minOrMax) {
     // TODO: return error if nDayPeriod <= 1
     // nDayPeriod > 1
     // if no step data, return 0
@@ -131,7 +131,7 @@ class Wearer {
 
       */
       const stepsSummary = this.getStepsSummary();
-      let minSteps = 0;
+      let minOrMaxSteps = 0;
       let totalSteps = stepsSummary[0].steps;
       let slowPtr = 0;
       let fastPtr = 1;
@@ -140,10 +140,10 @@ class Wearer {
         if (diff === nDayPeriod - 1) {
           totalSteps += stepsSummary[fastPtr].steps;
           // enough data collected
-          if (!minSteps) {
-            minSteps = totalSteps;
+          if (!minOrMaxSteps) {
+            minOrMaxSteps = totalSteps;
           }
-          minSteps = Math.min(minSteps, totalSteps);
+          minOrMaxSteps = Math[minOrMax](minOrMaxSteps, totalSteps);
           slowPtr++;
           fastPtr = slowPtr + 1;
           totalSteps = stepsSummary[slowPtr].steps;
@@ -157,7 +157,7 @@ class Wearer {
           fastPtr = slowPtr + 1;
         }
       }
-      return minSteps;
+      return minOrMaxSteps;
     }
   }
 }
@@ -214,7 +214,7 @@ class TestRunner {
     this.runTests(tests);
   }
 
-  testMinimumSteps() {
+  testMinMaxSteps() {
     let simulatedWatchData = {
       // 20 minute walk
       workoutId: 1,
@@ -301,17 +301,26 @@ class TestRunner {
     tests = [
       {
         title: 'Minimum steps over 2 day period',
-        actual: wearer.getMinimumSteps(2),
+        actual: wearer.getMinMaxSteps(2, 'min'),
         expected: 1600
       },
       {
+        title: 'Maximum steps over 2 day period',
+        actual: wearer.getMinMaxSteps(2, 'max'),
+        expected: 5808
+      },
+      {
         title: 'Minimum steps over 5 day period',
-        actual: wearer.getMinimumSteps(5),
+        actual: wearer.getMinMaxSteps(5, 'min'),
+        expected: 7408
+      },
+      {
+        title: 'Maximum steps over 5 day period',
+        actual: wearer.getMinMaxSteps(5, 'max'),
         expected: 7408
       }
     ];
     this.runTests(tests);
-
   }
 
   runGroupTests() {
@@ -321,8 +330,8 @@ class TestRunner {
         fn: this.testSingleWalkWorkout
       },
       {
-        title: 'Test minimum steps',
-        fn: this.testMinimumSteps
+        title: 'Test minimum and maximum steps',
+        fn: this.testMinMaxSteps
       }
     ];
     tests.forEach((test, testIndex) => {
