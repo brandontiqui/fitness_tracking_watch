@@ -59,20 +59,43 @@ class Workout {
 }
 
 class Wearer {
-  constructor() {
+  constructor(simulatedData) {
     this.workoutInstance = null;
     // data is entered in chronological order
     this.stepData = {stepsSummary: [], rawData: []};
-    // TODO: Track resting heart rate data
+    this.heartRateData = {rawData: {resting: [], active: []}};
+    this.isResting = true;
+
+    if (simulatedData) {
+      this.processSimulatedData(simulatedData);
+    }
+  }
+
+  processSimulatedData(simulatedData) {
+    const {heartRateData} = simulatedData;
+    if (heartRateData) {
+      let timeWhenMeasured = heartRateData.startTime;
+      heartRateData.heartRate.forEach(heartRate => {
+        this.storeHeartRateData({
+          timeWhenMeasured: timeWhenMeasured,
+          heartRate: heartRate
+        });
+        timeWhenMeasured += 60;
+      });
+    }
   }
 
   getStepsSummary() {
     return this.stepData.stepsSummary;
   }
 
+  getHeartRateData() {
+    return this.heartRateData;
+  }
+
   startWorkout(simulatedWatchData) {
     if (!this.workoutInstance) {
-      // TODO: stop recording resting heart rate data
+      this.isResting = false;
       this.workoutInstance = new Workout(simulatedWatchData);
     } else {
       console.log('There is a workout in progress');
@@ -95,9 +118,23 @@ class Wearer {
     this.stepData.rawData.push(newStepData);
   }
 
+  storeHeartRateData(newHeartRateData) {
+    /*
+      {
+        timeWhenMeasured: Number (UNIX timestamp),
+        heartRate: Number
+      }
+     */
+    const secondsPerDay = 86400;
+    const daysSinceUnixEpoch = Math.floor(newHeartRateData.timeWhenMeasured / secondsPerDay);
+    const newData = Object.assign({}, newHeartRateData, {daysSinceUnixEpoch: daysSinceUnixEpoch});
+    const dataCategory = this.isResting ? 'resting' : 'active';
+    this.heartRateData.rawData[dataCategory].push(newData);
+  }
+
   endWorkout() {
     if (this.workoutInstance) {
-      // TODO: start recording resting heart rate data
+      this.isResting = true;
       this.workoutInstance.finishWorkoutRecording();
       const summary = this.workoutInstance.getWorkoutSummary();
       if (summary.workoutType === 'walk') {
@@ -206,6 +243,49 @@ class Wearer {
       } else {
         return totalStepsForCompleteNDayPeriods / completeNDayPeriods;
       }
+    }
+  }
+
+  getAverageRestingHeartRate(nDayPeriod) {
+    /*
+     * N day period > 0
+     */
+    const heartRateDataList = this.getHeartRateData().rawData.resting;
+    if (heartRateDataList.length === 0) {
+      return 0;
+    } else {
+      let lastSeenDaysSinceUnixEpoch = heartRateDataList[0].daysSinceUnixEpoch;
+      let countOfNDayPeriods = 1;
+      let averageHeartRateData = [];
+      let totalHeartRateBpmInNDayPeriod = 0;
+      let countOfDataPointsInNDayPeriod = 0;
+
+      heartRateDataList.forEach(heartRateData => {
+        if (heartRateData.daysSinceUnixEpoch === lastSeenDaysSinceUnixEpoch) {
+          // collect more data
+          totalHeartRateBpmInNDayPeriod += heartRateData.heartRate;
+          countOfDataPointsInNDayPeriod++;
+        } else {
+          // bank collected data
+          averageHeartRateData.push(totalHeartRateBpmInNDayPeriod / countOfDataPointsInNDayPeriod);
+
+          countOfNDayPeriods++
+          // reset
+          totalHeartRateBpmInNDayPeriod = 0;
+          countOfDataPointsInNDayPeriod = 0;
+        }
+      });
+      // bank last set of data
+      if (countOfDataPointsInNDayPeriod) {
+        averageHeartRateData.push(totalHeartRateBpmInNDayPeriod / countOfDataPointsInNDayPeriod);
+      }
+      return averageHeartRateData.reduce((acc, cur, curIndex, arr) => {
+        acc += cur;
+        if (curIndex === arr.length - 1) {
+          acc = acc / arr.length;
+        }
+        return acc;
+      }, 0);
     }
   }
 }
@@ -381,6 +461,34 @@ class TestRunner {
     this.runTests(tests);
   }
 
+  testHeartRateStats() {
+    let simulatedData = {
+      heartRateData: {
+        // 10 rest period
+        startTime: 1600565160,
+        heartRate: [70, 75, 70, 72, 73, 71, 77, 79, 78, 76]
+      }
+    }
+    const wearer = new Wearer(simulatedData);
+    const heartRateData = wearer.getHeartRateData();
+    console.log('Heart rate data', JSON.stringify(heartRateData, null, 2));
+    console.log();
+
+    let tests = [
+      {
+        title: 'Simulated resting heart rate data should be available',
+        actual: heartRateData.rawData.resting.length,
+        expected: 10
+      },
+      {
+        title: 'Average heart rate over 1 day period',
+        actual: wearer.getAverageRestingHeartRate(1),
+        expected: simulatedData.heartRateData.heartRate.reduce((acc, cur) => acc + cur) / simulatedData.heartRateData.heartRate.length
+      }
+    ];
+    this.runTests(tests);
+  }
+
   runGroupTests() {
     const tests = [
       {
@@ -390,6 +498,10 @@ class TestRunner {
       {
         title: 'Test minimum, maximum, and average steps',
         fn: this.testStepsStats
+      },
+      {
+        title: 'Test average heart rate',
+        fn: this.testHeartRateStats
       }
     ];
     tests.forEach((test, testIndex) => {
