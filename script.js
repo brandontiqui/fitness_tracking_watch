@@ -63,6 +63,7 @@ class Wearer {
     this.workoutInstance = null;
     // data is entered in chronological order
     this.stepData = {stepsSummary: [], rawData: []};
+    this.caloriesBurnedData = {summary: [], rawData: []};
     this.heartRateData = {rawData: {resting: [], active: []}};
     this.isResting = true;
 
@@ -87,6 +88,10 @@ class Wearer {
 
   getStepsSummary() {
     return this.stepData.stepsSummary;
+  }
+
+  getDataSummary(dataCategory) {
+    return this[`${dataCategory}Data`].summary;
   }
 
   getHeartRateData() {
@@ -118,6 +123,27 @@ class Wearer {
     this.stepData.rawData.push(newStepData);
   }
 
+  storeData(newData, dataCategory) {
+    const secondsPerDay = 86400;
+    const daysSinceUnixEpoch = Math.floor(newData.startTime / secondsPerDay)
+
+    const source = this[`${dataCategory}Data`];
+    const lastDataPoint = source.summary[source.summary.length - 1];
+    if (lastDataPoint && lastDataPoint.daysSinceUnixEpoch === daysSinceUnixEpoch) {
+      lastDataPoint[dataCategory] += newData[dataCategory];
+    } else {
+      let payload = {
+        daysSinceUnixEpoch: daysSinceUnixEpoch,
+        [dataCategory]: newData[dataCategory]
+      };
+      if (dataCategory === 'caloriesBurned') {
+        payload.workoutType = newData.workoutType;
+      }
+      source.summary.push(payload);
+    }
+    source.rawData.push(newData);
+  }
+
   storeHeartRateData(newHeartRateData) {
     /*
       {
@@ -137,9 +163,8 @@ class Wearer {
       this.isResting = true;
       this.workoutInstance.finishWorkoutRecording();
       const summary = this.workoutInstance.getWorkoutSummary();
-      if (summary.workoutType === 'walk') {
-        this.storeStepData(summary);
-      }
+      this.storeStepData(summary);
+      this.storeData(summary, 'caloriesBurned');
       this.workoutInstance = null;
       return summary;
     } else {
@@ -286,6 +311,50 @@ class Wearer {
         }
         return acc;
       }, 0);
+    }
+  }
+
+  getAverageCaloriesBurnedPerWorkout(nDayPeriod, workoutType) {
+    /*
+     * N day period > 0
+     */
+    const caloriesBurnedDataList = this.getDataSummary('caloriesBurned')
+      .filter(data => data.workoutType === workoutType);
+
+    let completeNDayPeriods = 0;
+    let totalCaloriesBurnedForCompleteNDayPeriods = 0;
+
+    let totalCaloriesBurned = caloriesBurnedDataList[0].caloriesBurned;
+    let countOfDataPointsInNDayPeriod = 1;
+    let slowPtr = 0;
+    let fastPtr = 1;
+    while (fastPtr < caloriesBurnedDataList.length) {
+      const diff = caloriesBurnedDataList[fastPtr].daysSinceUnixEpoch - caloriesBurnedDataList[slowPtr].daysSinceUnixEpoch;
+      if (diff === nDayPeriod - 1) {
+        totalCaloriesBurned += caloriesBurnedDataList[fastPtr].caloriesBurned;
+        // enough data collected
+        completeNDayPeriods++;
+        totalCaloriesBurnedForCompleteNDayPeriods += totalCaloriesBurned;
+
+        slowPtr++;
+        fastPtr = slowPtr + 1;
+        totalCaloriesBurned = caloriesBurnedDataList[slowPtr].caloriesBurned;
+      } else if (diff < nDayPeriod) {
+        // collect more data
+        totalCaloriesBurned += caloriesBurnedDataList[fastPtr].caloriesBurned;
+        countOfDataPointsInNDayPeriod++;
+        fastPtr++;
+      } else {
+        slowPtr++;
+        totalCaloriesBurned = caloriesBurnedDataList[slowPtr].caloriesBurned;
+        fastPtr = slowPtr + 1;
+      }
+    }
+
+    if (completeNDayPeriods === 0) {
+      return 0;
+    } else {
+      return totalCaloriesBurnedForCompleteNDayPeriods / countOfDataPointsInNDayPeriod;
     }
   }
 }
@@ -489,6 +558,72 @@ class TestRunner {
     this.runTests(tests);
   }
 
+  testCaloriesStats() {
+    const dataCategory = 'caloriesBurned';
+
+    let simulatedWatchData = {
+      // 20 minute walk
+      workoutId: 1,
+      workoutType: 'walk',
+      startTime: 1600565100,
+      endTime: 1600565100,
+      caloriesBurnedData: [12, 14, 16, 18, 14, 16, 12, 16, 18, 16],
+      stepsData: [200, 210, 220, 260, 270, 240, 220, 216, 240, 248]
+    };
+    const wearer = new Wearer();
+    wearer.startWorkout(simulatedWatchData);
+    const workoutSummary1 = wearer.endWorkout();
+
+    simulatedWatchData = {
+      // 10 minute walk, same day
+      workoutId: 2,
+      workoutType: 'walk',
+      startTime: 1600565160,
+      endTime: 1600565760,
+      caloriesBurnedData: [11, 13, 15, 17, 13],
+      stepsData: [200, 210, 220, 260, 270]
+    };
+    wearer.startWorkout(simulatedWatchData);
+    wearer.endWorkout();
+
+    simulatedWatchData = {
+      // 10 minute walk, 2 days later
+      workoutId: 3,
+      workoutType: 'walk',
+      startTime: 1600824360,
+      endTime: 1600824960,
+      caloriesBurnedData: [12, 14, 16, 18, 14],
+      stepsData: [150, 160, 170, 155, 165]
+    };
+    wearer.startWorkout(simulatedWatchData);
+    wearer.endWorkout();
+
+    simulatedWatchData = {
+      // 10 minute walk, next day
+      workoutId: 4,
+      workoutType: 'walk',
+      startTime: 1600910760,
+      endTime: 1600911360,
+      caloriesBurnedData: [12, 14, 16, 18, 14],
+      stepsData: [150, 160, 170, 155, 165]
+    };
+    wearer.startWorkout(simulatedWatchData);
+    wearer.endWorkout();
+
+    const dataSummary = wearer.getDataSummary(dataCategory);
+    console.log('Summary data', dataSummary);
+    console.log();
+
+    let tests = [
+      {
+        title: 'Average calories burned per walk workout over 5 day period',
+        actual: wearer.getAverageCaloriesBurnedPerWorkout(5, 'walk'),
+        expected: 123
+      }
+    ];
+    this.runTests(tests);
+  }
+
   runGroupTests() {
     const tests = [
       {
@@ -502,6 +637,10 @@ class TestRunner {
       {
         title: 'Test average heart rate',
         fn: this.testHeartRateStats
+      },
+      {
+        title: 'Test average calories per workout for each workout type',
+        fn: this.testCaloriesStats
       }
     ];
     tests.forEach((test, testIndex) => {
