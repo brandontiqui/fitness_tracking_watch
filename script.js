@@ -62,7 +62,7 @@ class Wearer {
   constructor(simulatedData) {
     this.workoutInstance = null;
     // data is entered in chronological order
-    this.stepData = {stepsSummary: [], rawData: []};
+    this.stepsData = {summary: [], rawData: []};
     this.caloriesBurnedData = {summary: [], rawData: []};
     this.heartRateData = {rawData: {resting: [], active: []}};
     this.isResting = true;
@@ -86,10 +86,6 @@ class Wearer {
     }
   }
 
-  getStepsSummary() {
-    return this.stepData.stepsSummary;
-  }
-
   getDataSummary(dataCategory) {
     return this[`${dataCategory}Data`].summary;
   }
@@ -105,22 +101,6 @@ class Wearer {
     } else {
       console.log('There is a workout in progress');
     }
-  }
-
-  storeStepData(newStepData) {
-    const secondsPerDay = 86400;
-    const daysSinceUnixEpoch = Math.floor(newStepData.startTime / secondsPerDay);
-    // add steps to last data point or insert
-    const lastDataPoint = this.stepData.stepsSummary[this.stepData.stepsSummary.length - 1];
-    if (lastDataPoint && lastDataPoint.daysSinceUnixEpoch === daysSinceUnixEpoch) {
-      lastDataPoint.steps += newStepData.steps;
-    } else {
-      this.stepData.stepsSummary.push({
-        daysSinceUnixEpoch: daysSinceUnixEpoch,
-        steps: newStepData.steps
-      });
-    }
-    this.stepData.rawData.push(newStepData);
   }
 
   storeData(newData, dataCategory) {
@@ -163,7 +143,7 @@ class Wearer {
       this.isResting = true;
       this.workoutInstance.finishWorkoutRecording();
       const summary = this.workoutInstance.getWorkoutSummary();
-      this.storeStepData(summary);
+      this.storeData(summary, 'steps');
       this.storeData(summary, 'caloriesBurned');
       this.workoutInstance = null;
       return summary;
@@ -176,10 +156,10 @@ class Wearer {
     // TODO: return error if nDayPeriod <= 1
     // nDayPeriod > 1
     // if no step data, return 0
-    if (this.stepData.length === 0) {
+    if (this.stepsData.length === 0) {
       return 0;
-    } else if (this.stepData.length === 1) {
-      return this.stepData[0].steps;
+    } else if (this.stepsData.length === 1) {
+      return this.stepsData[0].steps;
     } else {
       /*
         Summary steps data sample:
@@ -192,7 +172,7 @@ class Wearer {
         2 pointer method over stepsSummary list
 
       */
-      const stepsSummary = this.getStepsSummary();
+      const stepsSummary = this.getDataSummary('steps');
       let minOrMaxSteps = 0;
       let totalSteps = stepsSummary[0].steps;
       let slowPtr = 0;
@@ -229,15 +209,15 @@ class Wearer {
      * 2. store running total of steps for complete N day periods
      * 3. divide number of complete periods by running total
      */
-    if (this.stepData.length === 0) {
+    if (this.stepsData.length === 0) {
       return 0;
-    } else if (this.stepData.length === 1) {
-      return this.stepData[0].steps;
+    } else if (this.stepsData.length === 1) {
+      return this.stepsData[0].steps;
     } else {
       let completeNDayPeriods = 0;
       let totalStepsForCompleteNDayPeriods = 0;
 
-      const stepsSummary = this.getStepsSummary();
+      const stepsSummary = this.getDataSummary('steps');
       let totalSteps = stepsSummary[0].steps;
       let slowPtr = 0;
       let fastPtr = 1;
@@ -435,7 +415,7 @@ class TestRunner {
     wearer.startWorkout(simulatedWatchData);
     const workoutSummary2 = wearer.endWorkout();
 
-    let stepData = wearer.getStepsSummary();
+    let stepData = wearer.getDataSummary('steps');
     let lastSummaryDataPoint = stepData[stepData.length - 1];
     console.log('summary data point', lastSummaryDataPoint);
     console.log();
@@ -491,7 +471,7 @@ class TestRunner {
     wearer.startWorkout(simulatedWatchData);
     wearer.endWorkout();
 
-    stepData = wearer.getStepsSummary();
+    stepData = wearer.getDataSummary('steps');
     console.log('Summary step data', stepData);
     console.log();
 

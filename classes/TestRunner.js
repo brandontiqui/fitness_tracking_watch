@@ -77,7 +77,7 @@ class TestRunner {
     wearer.startWorkout(simulatedWatchData);
     const workoutSummary2 = wearer.endWorkout();
 
-    let stepData = wearer.getStepsSummary();
+    let stepData = wearer.getDataSummary('steps');
     let lastSummaryDataPoint = stepData[stepData.length - 1];
     console.log('summary data point', lastSummaryDataPoint);
     console.log();
@@ -133,7 +133,7 @@ class TestRunner {
     wearer.startWorkout(simulatedWatchData);
     wearer.endWorkout();
 
-    stepData = wearer.getStepsSummary();
+    stepData = wearer.getDataSummary('steps');
     console.log('Summary step data', stepData);
     console.log();
 
