@@ -1,4 +1,11 @@
+/**
+ * Class representing a workout.
+ */
 class Workout {
+  /**
+   * Create a workout.
+   * @param {object} simulatedWatchData - Data for simulating a workout.
+   */
   constructor(simulatedWatchData) {
     this.workoutId = null;
     this.workoutType = null;
@@ -12,20 +19,51 @@ class Workout {
     this.processSimulatedData();
   }
 
+  /**
+   * Track total calories burned for a workout.
+   * @param {object} caloriesData - Calories Burned recording sent by watch every 2 minutes.
+   */
   addCaloriesBurned(caloriesData) {
+    /*
+      {
+        additionalCaloriesBurned: Number
+      }
+     */
     this.caloriesBurned += caloriesData.additionalCaloriesBurned;
   }
 
+  /**
+   * Track total steps for a workout.
+   * @param {object} stepsData - Additional step recording sent by watch every 2 minutes.
+   */
   addSteps(stepsData) {
+    /*
+      {
+        additionalSteps: Number
+      }
+     */
     this.steps += stepsData.additionalSteps;
   }
 
+  /**
+   * Start workout recording.
+   * @param {object} watchData - Sent by watch when user starts a workout.
+   */
   startWorkoutRecording(watchData) {
+    /*
+      {
+        workoutType: String
+        startTime: Long (UNIX timestamp)
+      }
+     */
     const data = watchData || this.simulatedWatchData;
     this.workoutType = data.workoutType;
     this.startTime = data.startTime;
   }
 
+  /**
+   * Process simulated data.
+   */
   processSimulatedData() {
     const {caloriesBurnedData, stepsData, heartRateData} = this.simulatedWatchData;
     if (caloriesBurnedData) {
@@ -40,12 +78,20 @@ class Workout {
     }
   }
 
+  /**
+   * Finish workout recording.
+   * @param {object} watchData - Sent by watch when user finishes a workout.
+   */
   finishWorkoutRecording(watchData) {
     const data = watchData || this.simulatedWatchData;
     this.workoutId = data.workoutId;
     this.endTime = data.endTime;
   }
 
+  /**
+   * Get workout summary.
+   * @return {object} Data related to the completed workout.
+   */
   getWorkoutSummary() {
     return {
       workoutId: this.workoutId,
@@ -58,8 +104,15 @@ class Workout {
   }
 }
 
+/**
+ * Class representing a wearer.
+ */
 class Wearer {
-  constructor(simulatedData) {
+  /**
+   * Create a wearer.
+   * @param {object} simulatedWatchData - Data for simulating a workout.
+   */
+  constructor(simulatedWatchData) {
     this.workoutInstance = null;
     // data is entered in chronological order
     this.stepsData = {summary: [], rawData: []};
@@ -67,13 +120,17 @@ class Wearer {
     this.heartRateData = {rawData: {resting: [], active: []}};
     this.isResting = true;
 
-    if (simulatedData) {
-      this.processSimulatedData(simulatedData);
+    if (simulatedWatchData) {
+      this.processSimulatedData(simulatedWatchData);
     }
   }
 
-  processSimulatedData(simulatedData) {
-    const {heartRateData} = simulatedData;
+  /**
+   * Process simulated data.
+   * @param {object} simulatedWatchData - Data for simulating a workout.
+   */
+  processSimulatedData(simulatedWatchData) {
+    const {heartRateData} = simulatedWatchData;
     if (heartRateData) {
       let timeWhenMeasured = heartRateData.startTime;
       heartRateData.heartRate.forEach(heartRate => {
@@ -86,14 +143,22 @@ class Wearer {
     }
   }
 
+  /**
+   * Get summary data.
+   * @param {string} dataCategory - Data category ("steps", "caloriesBurned", or "heartRate").
+   */
   getDataSummary(dataCategory) {
-    return this[`${dataCategory}Data`].summary;
+    let dataSource = this[`${dataCategory}Data`];
+    if (dataCategory !== 'heartRate') {
+      dataSource = dataSource.summary;
+    }
+    return dataSource;
   }
 
-  getHeartRateData() {
-    return this.heartRateData;
-  }
-
+  /**
+   * Start a workout.
+   * @param {object} simulatedWatchData - Data for simulating a workout.
+   */
   startWorkout(simulatedWatchData) {
     if (!this.workoutInstance) {
       this.isResting = false;
@@ -103,6 +168,11 @@ class Wearer {
     }
   }
 
+  /**
+   * Store data (steps, calories burned).
+   * @param {object} newData - Data for steps or calories burned.
+   * @param {string} dataCategory - Data category ("steps" or "caloriesBurned").
+   */
   storeData(newData, dataCategory) {
     const secondsPerDay = 86400;
     const daysSinceUnixEpoch = Math.floor(newData.startTime / secondsPerDay)
@@ -124,6 +194,10 @@ class Wearer {
     source.rawData.push(newData);
   }
 
+  /**
+   * Store heart rate data.
+   * @param {object} newHeartRateData - Data for heart rate.
+   */
   storeHeartRateData(newHeartRateData) {
     /*
       {
@@ -138,6 +212,9 @@ class Wearer {
     this.heartRateData.rawData[dataCategory].push(newData);
   }
 
+  /**
+   * End a workout.
+   */
   endWorkout() {
     if (this.workoutInstance) {
       this.isResting = true;
@@ -152,9 +229,13 @@ class Wearer {
     }
   }
 
+  /**
+   * Get minimum or maximum steps for a wearer over N day period.
+   * @param {number} nDayPeriod - N day period > 1.
+   * @param {string} minOrMax - The string "min" or "max".
+   * @return {number} Minimum or maximum steps over N day period.
+   */
   getMinMaxSteps(nDayPeriod, minOrMax) {
-    // TODO: return error if nDayPeriod <= 1
-    // nDayPeriod > 1
     // if no step data, return 0
     if (this.stepsData.length === 0) {
       return 0;
@@ -203,6 +284,11 @@ class Wearer {
     }
   }
 
+  /**
+   * Get average number of steps for a wearer over N day period.
+   * @param {number} nDayPeriod - N day period > 1.
+   * @return {number} Average number of steps over N day period.
+   */
   getAverageNumberOfSteps(nDayPeriod) {
     /*
      * 1. track number of complete N day periods
@@ -251,11 +337,13 @@ class Wearer {
     }
   }
 
+  /**
+   * Get average resting heart rate for a wearer over N day period.
+   * @param {number} nDayPeriod - N day period > 0.
+   * @return {number} Average resting heart rate over N day period.
+   */
   getAverageRestingHeartRate(nDayPeriod) {
-    /*
-     * N day period > 0
-     */
-    const heartRateDataList = this.getHeartRateData().rawData.resting;
+    const heartRateDataList = this.getDataSummary('heartRate').rawData.resting;
     if (heartRateDataList.length === 0) {
       return 0;
     } else {
@@ -294,10 +382,13 @@ class Wearer {
     }
   }
 
+  /**
+   * Get average calories burned per workout for each workout type over N day period.
+   * @param {number} nDayPeriod - N day period > 0.
+   * @param {string} workoutType - The string representing the workout type (Ex: "walk").
+   * @return {number} Average calories burned per workout for each workout type over N day period.
+   */
   getAverageCaloriesBurnedPerWorkout(nDayPeriod, workoutType) {
-    /*
-     * N day period > 0
-     */
     const caloriesBurnedDataList = this.getDataSummary('caloriesBurned')
       .filter(data => data.workoutType === workoutType);
 
@@ -339,20 +430,38 @@ class Wearer {
   }
 }
 
+/**
+ * Class to simulate watch data and run tests.
+ */
 class TestRunner {
   constructor() {
+    this.totalTests = 0;
+    this.numberOfTestsPassed = 0;
   }
 
+  /**
+   * Run tests.
+   * @param {array} tests - List of tests to run.
+   */
   runTests(tests) {
     tests.forEach(test => {
+      this.totalTests++;
+      const testPassed = test.actual === test.expected;
       console.log('Title:', test.title);
       console.log('Actual:', test.actual);
       console.log('Expected:', test.expected);
-      console.log('Success:', test.actual === test.expected);
+      console.log('Success:', testPassed);
       console.log();
+      if (testPassed) {
+        this.numberOfTestsPassed++;
+      }
     });
   }
 
+  /**
+   * Test single walk workout.
+   * @param {Wearer} wearer - Instance of the Wearer class.
+   */
   testSingleWalkWorkout(wearer) {
     const simulatedWatchData = {
       // 20 minute walk
@@ -391,6 +500,9 @@ class TestRunner {
     this.runTests(tests);
   }
 
+  /**
+   * Test steps stats.
+   */
   testStepsStats() {
     let simulatedWatchData = {
       // 20 minute walk
@@ -510,6 +622,9 @@ class TestRunner {
     this.runTests(tests);
   }
 
+  /**
+   * Test heart rate stats.
+   */
   testHeartRateStats() {
     let simulatedData = {
       heartRateData: {
@@ -519,7 +634,7 @@ class TestRunner {
       }
     }
     const wearer = new Wearer(simulatedData);
-    const heartRateData = wearer.getHeartRateData();
+    const heartRateData = wearer.getDataSummary('heartRate');
     console.log('Heart rate data', JSON.stringify(heartRateData, null, 2));
     console.log();
 
@@ -538,6 +653,9 @@ class TestRunner {
     this.runTests(tests);
   }
 
+  /**
+   * Test calories stats.
+   */
   testCaloriesStats() {
     const dataCategory = 'caloriesBurned';
 
@@ -604,7 +722,10 @@ class TestRunner {
     this.runTests(tests);
   }
 
-  runGroupTests() {
+  /**
+   * Run test groups.
+   */
+  runTestGroups() {
     const tests = [
       {
         title: 'Test single walk workout',
@@ -624,12 +745,14 @@ class TestRunner {
       }
     ];
     tests.forEach((test, testIndex) => {
-      console.log('--------------------------------------------------');
-      console.log(`Test ${testIndex + 1}: ${test.title}`);
+      console.log('-----------------------------------------------------------------------');
+      console.log(`Test Group ${testIndex + 1}: ${test.title}`);
       test.fn.apply(this);
     });
+
+    console.log(`${this.numberOfTestsPassed} of ${this.totalTests} tests passed.`)
   }
 }
 
 const testRunner = new TestRunner();
-testRunner.runGroupTests();
+testRunner.runTestGroups();

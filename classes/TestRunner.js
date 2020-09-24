@@ -1,20 +1,38 @@
 const Workout = require('./Workout');
 const Wearer = require('./Wearer');
 
+/**
+ * Class to simulate watch data and run tests.
+ */
 class TestRunner {
   constructor() {
+    this.totalTests = 0;
+    this.numberOfTestsPassed = 0;
   }
 
+  /**
+   * Run tests.
+   * @param {array} tests - List of tests to run.
+   */
   runTests(tests) {
     tests.forEach(test => {
+      this.totalTests++;
+      const testPassed = test.actual === test.expected;
       console.log('Title:', test.title);
       console.log('Actual:', test.actual);
       console.log('Expected:', test.expected);
-      console.log('Success:', test.actual === test.expected);
+      console.log('Success:', testPassed);
       console.log();
+      if (testPassed) {
+        this.numberOfTestsPassed++;
+      }
     });
   }
 
+  /**
+   * Test single walk workout.
+   * @param {Wearer} wearer - Instance of the Wearer class.
+   */
   testSingleWalkWorkout(wearer) {
     const simulatedWatchData = {
       // 20 minute walk
@@ -53,6 +71,9 @@ class TestRunner {
     this.runTests(tests);
   }
 
+  /**
+   * Test steps stats.
+   */
   testStepsStats() {
     let simulatedWatchData = {
       // 20 minute walk
@@ -172,6 +193,9 @@ class TestRunner {
     this.runTests(tests);
   }
 
+  /**
+   * Test heart rate stats.
+   */
   testHeartRateStats() {
     let simulatedData = {
       heartRateData: {
@@ -181,7 +205,7 @@ class TestRunner {
       }
     }
     const wearer = new Wearer(simulatedData);
-    const heartRateData = wearer.getHeartRateData();
+    const heartRateData = wearer.getDataSummary('heartRate');
     console.log('Heart rate data', JSON.stringify(heartRateData, null, 2));
     console.log();
 
@@ -200,6 +224,9 @@ class TestRunner {
     this.runTests(tests);
   }
 
+  /**
+   * Test calories stats.
+   */
   testCaloriesStats() {
     const dataCategory = 'caloriesBurned';
 
@@ -266,7 +293,10 @@ class TestRunner {
     this.runTests(tests);
   }
 
-  runGroupTests() {
+  /**
+   * Run test groups.
+   */
+  runTestGroups() {
     const tests = [
       {
         title: 'Test single walk workout',
@@ -286,10 +316,12 @@ class TestRunner {
       }
     ];
     tests.forEach((test, testIndex) => {
-      console.log('--------------------------------------------------');
-      console.log(`Test ${testIndex + 1}: ${test.title}`);
+      console.log('-----------------------------------------------------------------------');
+      console.log(`Test Group ${testIndex + 1}: ${test.title}`);
       test.fn.apply(this);
     });
+
+    console.log(`${this.numberOfTestsPassed} of ${this.totalTests} tests passed.`)
   }
 }
 

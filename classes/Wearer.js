@@ -1,7 +1,14 @@
 const Workout = require('./Workout');
 
+/**
+ * Class representing a wearer.
+ */
 class Wearer {
-  constructor(simulatedData) {
+  /**
+   * Create a wearer.
+   * @param {object} simulatedWatchData - Data for simulating a workout.
+   */
+  constructor(simulatedWatchData) {
     this.workoutInstance = null;
     // data is entered in chronological order
     this.stepsData = {summary: [], rawData: []};
@@ -9,13 +16,17 @@ class Wearer {
     this.heartRateData = {rawData: {resting: [], active: []}};
     this.isResting = true;
 
-    if (simulatedData) {
-      this.processSimulatedData(simulatedData);
+    if (simulatedWatchData) {
+      this.processSimulatedData(simulatedWatchData);
     }
   }
 
-  processSimulatedData(simulatedData) {
-    const {heartRateData} = simulatedData;
+  /**
+   * Process simulated data.
+   * @param {object} simulatedWatchData - Data for simulating a workout.
+   */
+  processSimulatedData(simulatedWatchData) {
+    const {heartRateData} = simulatedWatchData;
     if (heartRateData) {
       let timeWhenMeasured = heartRateData.startTime;
       heartRateData.heartRate.forEach(heartRate => {
@@ -28,14 +39,22 @@ class Wearer {
     }
   }
 
+  /**
+   * Get summary data.
+   * @param {string} dataCategory - Data category ("steps", "caloriesBurned", or "heartRate").
+   */
   getDataSummary(dataCategory) {
-    return this[`${dataCategory}Data`].summary;
+    let dataSource = this[`${dataCategory}Data`];
+    if (dataCategory !== 'heartRate') {
+      dataSource = dataSource.summary;
+    }
+    return dataSource;
   }
 
-  getHeartRateData() {
-    return this.heartRateData;
-  }
-
+  /**
+   * Start a workout.
+   * @param {object} simulatedWatchData - Data for simulating a workout.
+   */
   startWorkout(simulatedWatchData) {
     if (!this.workoutInstance) {
       this.isResting = false;
@@ -45,6 +64,11 @@ class Wearer {
     }
   }
 
+  /**
+   * Store data (steps, calories burned).
+   * @param {object} newData - Data for steps or calories burned.
+   * @param {string} dataCategory - Data category ("steps" or "caloriesBurned").
+   */
   storeData(newData, dataCategory) {
     const secondsPerDay = 86400;
     const daysSinceUnixEpoch = Math.floor(newData.startTime / secondsPerDay)
@@ -66,6 +90,10 @@ class Wearer {
     source.rawData.push(newData);
   }
 
+  /**
+   * Store heart rate data.
+   * @param {object} newHeartRateData - Data for heart rate.
+   */
   storeHeartRateData(newHeartRateData) {
     /*
       {
@@ -80,6 +108,9 @@ class Wearer {
     this.heartRateData.rawData[dataCategory].push(newData);
   }
 
+  /**
+   * End a workout.
+   */
   endWorkout() {
     if (this.workoutInstance) {
       this.isResting = true;
@@ -94,9 +125,13 @@ class Wearer {
     }
   }
 
+  /**
+   * Get minimum or maximum steps for a wearer over N day period.
+   * @param {number} nDayPeriod - N day period > 1.
+   * @param {string} minOrMax - The string "min" or "max".
+   * @return {number} Minimum or maximum steps over N day period.
+   */
   getMinMaxSteps(nDayPeriod, minOrMax) {
-    // TODO: return error if nDayPeriod <= 1
-    // nDayPeriod > 1
     // if no step data, return 0
     if (this.stepsData.length === 0) {
       return 0;
@@ -145,6 +180,11 @@ class Wearer {
     }
   }
 
+  /**
+   * Get average number of steps for a wearer over N day period.
+   * @param {number} nDayPeriod - N day period > 1.
+   * @return {number} Average number of steps over N day period.
+   */
   getAverageNumberOfSteps(nDayPeriod) {
     /*
      * 1. track number of complete N day periods
@@ -193,11 +233,13 @@ class Wearer {
     }
   }
 
+  /**
+   * Get average resting heart rate for a wearer over N day period.
+   * @param {number} nDayPeriod - N day period > 0.
+   * @return {number} Average resting heart rate over N day period.
+   */
   getAverageRestingHeartRate(nDayPeriod) {
-    /*
-     * N day period > 0
-     */
-    const heartRateDataList = this.getHeartRateData().rawData.resting;
+    const heartRateDataList = this.getDataSummary('heartRate').rawData.resting;
     if (heartRateDataList.length === 0) {
       return 0;
     } else {
@@ -236,10 +278,13 @@ class Wearer {
     }
   }
 
+  /**
+   * Get average calories burned per workout for each workout type over N day period.
+   * @param {number} nDayPeriod - N day period > 0.
+   * @param {string} workoutType - The string representing the workout type (Ex: "walk").
+   * @return {number} Average calories burned per workout for each workout type over N day period.
+   */
   getAverageCaloriesBurnedPerWorkout(nDayPeriod, workoutType) {
-    /*
-     * N day period > 0
-     */
     const caloriesBurnedDataList = this.getDataSummary('caloriesBurned')
       .filter(data => data.workoutType === workoutType);
 
